@@ -79,7 +79,7 @@ booksRoutes.get("/", async (req: Request, res: Response) => {
       filter,
       sortBy = "createdAt",
       sort = "desc",
-      limit = "5",
+      limit = "10",
     } = req.query;
 
     const findQuery: any = {};
@@ -97,65 +97,124 @@ booksRoutes.get("/", async (req: Request, res: Response) => {
       data: books,
     });
   } catch (error) {
-    console.log(error);
+    res.status(500).json({
+      message: "An error occurred while retrieving books",
+      success: false,
+      error,
+    });
   }
 });
 
-booksRoutes.get("/:bookId", async (req: Request, res: Response) => {
-  const id = req.params.bookId;
+booksRoutes.get(
+  "/:bookId",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const id = req.params.bookId;
 
-  const book = await Book.findById(id);
+      const book = await Book.findById(id);
 
-  res.status(200).json({
-    success: true,
-    message: "Book retrieved successfully",
-    data: book,
-  });
-});
+      if (!book) {
+        return res.status(404).json({
+          success: false,
+          message: "Book not found",
+          error: {
+            name: "NotFoundError",
+            message: `No book found with ID: ${id}`,
+          },
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Book retrieved successfully",
+        data: book,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: "An error occurred while retrieving the book",
+        error,
+      });
+    }
+  }
+);
 
 booksRoutes.put(
   "/:bookId",
   async (req: Request, res: Response): Promise<any> => {
-    const id = req.params.bookId;
-    const body = req.body;
+    try {
+      const id = req.params.bookId;
+      const body = req.body;
 
-    const book = await Book.findById(id);
-    if (!book) {
-      return res.status(404).json({
+      const book = await Book.findById(id);
+      if (!book) {
+        return res.status(404).json({
+          success: false,
+          message: "Book not found",
+          error: {
+            name: "NotFoundError",
+            message: `No book found with ID: ${id}`,
+          },
+        });
+      }
+
+      const originalCopies = book.copies;
+
+      Object.assign(book, body);
+      await book.save();
+
+      // Only update availability if copies were updated
+      if (body.copies !== undefined && body.copies !== originalCopies) {
+        await Book.updateAvailability(book._id);
+      }
+
+      const updatedBook = await Book.findById(book._id);
+
+      res.status(200).json({
+        success: true,
+        message: "Book updated successfully",
+        data: updatedBook,
+      });
+    } catch (error: any) {
+      res.status(500).json({
         success: false,
-        message: "Book not found",
-        data: null,
+        message: "An error occurred while updating the book",
+        error,
       });
     }
-
-    const originalCopies = book.copies;
-
-    Object.assign(book, body);
-    await book.save();
-
-    // Only update availability if copies field was included in the update
-    if (body.copies !== undefined && body.copies !== originalCopies) {
-      await Book.updateAvailability(book._id);
-    }
-
-    const updatedBook = await Book.findById(book._id);
-
-    res.status(200).json({
-      success: true,
-      message: "Book updated successfully",
-      data: updatedBook,
-    });
   }
 );
 
-booksRoutes.delete("/:bookId", async (req: Request, res: Response) => {
-  const id = req.params.bookId;
+booksRoutes.delete(
+  "/:bookId",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const id = req.params.bookId;
 
-  await Book.findByIdAndDelete(id);
+      const deletedBook = await Book.findByIdAndDelete(id);
 
-  res.status(200).json({
-    success: true,
-    message: "Book deleted successfully",
-    data: null,
-  });
-});
+      if (!deletedBook) {
+        return res.status(404).json({
+          success: false,
+          message: "Book not found",
+          error: {
+            name: "NotFoundError",
+            message: `No book found with ID: ${id}`,
+          },
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Book deleted successfully",
+        data: null,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: "An error occurred while deleting the book",
+        error,
+      });
+    }
+  }
+);

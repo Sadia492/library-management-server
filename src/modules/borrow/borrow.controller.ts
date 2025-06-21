@@ -38,36 +38,46 @@ borrowRoutes.post("/", async (req: Request, res: Response): Promise<any> => {
 });
 
 borrowRoutes.get("/", async (req: Request, res: Response) => {
-  const summary = await Borrow.aggregate([
-    {
-      $group: {
-        _id: "$book",
-        totalQuantity: { $sum: "$quantity" },
-      },
-    },
-    {
-      $lookup: {
-        from: "books",
-        localField: "_id",
-        foreignField: "_id",
-        as: "bookDetails",
-      },
-    },
-    { $unwind: "$bookDetails" },
-    {
-      $project: {
-        totalQuantity: 1,
-        book: {
-          title: "$bookDetails.title",
-          isbn: "$bookDetails.isbn",
+  try {
+    const summary = await Borrow.aggregate([
+      {
+        $group: {
+          _id: "$book",
+          totalQuantity: { $sum: "$quantity" },
         },
       },
-    },
-  ]);
+      {
+        $lookup: {
+          from: "books",
+          localField: "_id",
+          foreignField: "_id",
+          as: "bookDetails",
+        },
+      },
+      { $unwind: "$bookDetails" },
+      {
+        $project: {
+          totalQuantity: 1,
+          book: {
+            title: "$bookDetails.title",
+            isbn: "$bookDetails.isbn",
+          },
+        },
+      },
+    ]);
 
-  res.status(201).json({
-    success: true,
-    message: "Borrowed books summary retrieved successfully",
-    data: summary,
-  });
+    res.status(200).json({
+      success: true,
+      message: "Borrowed books summary retrieved successfully",
+      data: summary,
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while retrieving the borrowed books summary",
+      error,
+    });
+  }
 });
