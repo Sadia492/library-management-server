@@ -23,9 +23,11 @@ const borrowSchema = new Schema<IBorrow>(
       required: [true, "Due date is required"],
       validate: {
         validator: function (value: Date) {
-          return value > new Date();
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return value >= today;
         },
-        message: "Due date must be in the future",
+        message: "Due date must be today or in the future",
       },
     },
   },
